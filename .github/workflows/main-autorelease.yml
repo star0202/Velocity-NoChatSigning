@@ -25,4 +25,4 @@ jobs:
         prerelease: true
         title: "Experimental Builds"
         files: |
-          *nosigned-all.jar
+          *-all.jar
