@@ -16,13 +16,7 @@ jobs:
         java-version: 11
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
-    - name: Build with Gradle
-      run: ./gradlew build
-    - uses: "marvinpinto/action-automatic-releases@latest"
-      with:
-        repo_token: "${{ secrets.REPO_TOKEN }}"
-        automatic_release_tag: "latest"
-        prerelease: true
-        title: "Experimental Builds"
-        files: |
-          *-all.jar
+    - name: Build with Gradle and upload to Releases
+      run: |
+        ./gradlew build
+        gh release create latest proxy/build/libs/*-all.jar
