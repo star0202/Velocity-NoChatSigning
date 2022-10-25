@@ -21,4 +21,4 @@ jobs:
         GH_TOKEN: ${{ secrets.REPO_TOKEN }}
       run: |
         ./gradlew build
-        gh release upload latest proxy/build/libs/*-all.jar -t "GITHUB_JOB" --notes "Built in reaction to $GITHUB_JOB." --clobber
+        gh release create  latest proxy/build/libs/*-all.jar --generate-notes --prerelease
