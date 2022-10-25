@@ -3,7 +3,10 @@
 
 name: Java CI with AutoRelease
 
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - dev/3.0.0
 
 jobs:
   build-11:
