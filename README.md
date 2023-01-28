@@ -1,4 +1,4 @@
-# Better Velocity
+# Velocity-NoChatSigning
 
 A Minecraft server proxy with unparalleled server support, scalability,
 and flexibility.
