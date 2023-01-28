@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 Velocity Contributors
+ * Copyright (C) 2018-2023 Velocity Contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -65,11 +65,14 @@ import com.velocitypowered.proxy.protocol.packet.HeaderAndFooter;
 import com.velocitypowered.proxy.protocol.packet.KeepAlive;
 import com.velocitypowered.proxy.protocol.packet.PluginMessage;
 import com.velocitypowered.proxy.protocol.packet.ResourcePackRequest;
-import com.velocitypowered.proxy.protocol.packet.chat.ChatBuilder;
 import com.velocitypowered.proxy.protocol.packet.chat.ChatQueue;
-import com.velocitypowered.proxy.protocol.packet.chat.LegacyChat;
+import com.velocitypowered.proxy.protocol.packet.chat.ChatType;
+import com.velocitypowered.proxy.protocol.packet.chat.builder.ChatBuilderFactory;
+import com.velocitypowered.proxy.protocol.packet.chat.legacy.LegacyChat;
 import com.velocitypowered.proxy.protocol.packet.title.GenericTitlePacket;
 import com.velocitypowered.proxy.server.VelocityRegisteredServer;
+import com.velocitypowered.proxy.tablist.InternalTabList;
+import com.velocitypowered.proxy.tablist.KeyedVelocityTabList;
 import com.velocitypowered.proxy.tablist.VelocityTabList;
 import com.velocitypowered.proxy.tablist.VelocityTabListLegacy;
 import com.velocitypowered.proxy.util.ClosestLocaleMatcher;
@@ -114,16 +117,20 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.jetbrains.annotations.NotNull;
 
+/**
+ * Represents a player that is connected to the proxy.
+ */
 public class ConnectedPlayer implements MinecraftConnectionAssociation, Player, KeyIdentifiable,
     VelocityInboundConnection {
 
   private static final int MAX_PLUGIN_CHANNELS = 1024;
-  private static final PlainTextComponentSerializer PASS_THRU_TRANSLATE = PlainTextComponentSerializer.builder()
-      .flattener(ComponentFlattener.basic().toBuilder()
-          .mapper(KeybindComponent.class, c -> "")
-          .mapper(TranslatableComponent.class, TranslatableComponent::key)
-          .build())
-      .build();
+  private static final PlainTextComponentSerializer PASS_THRU_TRANSLATE =
+      PlainTextComponentSerializer.builder()
+          .flattener(ComponentFlattener.basic().toBuilder()
+              .mapper(KeybindComponent.class, c -> "")
+              .mapper(TranslatableComponent.class, TranslatableComponent::key)
+              .build())
+          .build();
   static final PermissionProvider DEFAULT_PERMISSIONS = s -> PermissionFunction.ALWAYS_UNDEFINED;
 
   private static final Logger logger = LogManager.getLogger(ConnectedPlayer.class);
@@ -145,7 +152,7 @@ public class ConnectedPlayer implements MinecraftConnectionAssociation, Player, 
   private @Nullable ModInfo modInfo;
   private Component playerListHeader = Component.empty();
   private Component playerListFooter = Component.empty();
-  private final VelocityTabList tabList;
+  private final InternalTabList tabList;
   private final VelocityServer server;
   private ClientConnectionPhase connectionPhase;
   private final Collection<String> knownChannels;
@@ -166,10 +173,12 @@ public class ConnectedPlayer implements MinecraftConnectionAssociation, Player, 
   private @Nullable String clientBrand;
   private @Nullable Locale effectiveLocale;
   private @Nullable IdentifiedKey playerKey;
-  private ChatQueue chatQueue;
+  private final ChatQueue chatQueue;
+  private final ChatBuilderFactory chatBuilderFactory;
 
   ConnectedPlayer(VelocityServer server, GameProfile profile, MinecraftConnection connection,
-                  @Nullable InetSocketAddress virtualHost, boolean onlineMode, @Nullable IdentifiedKey playerKey) {
+      @Nullable InetSocketAddress virtualHost, boolean onlineMode,
+      @Nullable IdentifiedKey playerKey) {
     this.server = server;
     this.profile = profile;
     this.connection = connection;
@@ -179,16 +188,23 @@ public class ConnectedPlayer implements MinecraftConnectionAssociation, Player, 
     this.knownChannels = CappedSet.create(MAX_PLUGIN_CHANNELS);
     this.onlineMode = onlineMode;
 
-    if (connection.getProtocolVersion().compareTo(ProtocolVersion.MINECRAFT_1_8) >= 0) {
-      this.tabList = new VelocityTabList(this, server);
+    if (connection.getProtocolVersion().compareTo(ProtocolVersion.MINECRAFT_1_19_3) >= 0) {
+      this.tabList = new VelocityTabList(this);
+    } else if (connection.getProtocolVersion().compareTo(ProtocolVersion.MINECRAFT_1_8) >= 0) {
+      this.tabList = new KeyedVelocityTabList(this, server);
     } else {
       this.tabList = new VelocityTabListLegacy(this, server);
     }
     this.playerKey = playerKey;
     this.chatQueue = new ChatQueue(this);
+    this.chatBuilderFactory = new ChatBuilderFactory(this.getProtocolVersion());
   }
 
-  ChatQueue getChatQueue() {
+  public ChatBuilderFactory getChatBuilderFactory() {
+    return chatBuilderFactory;
+  }
+
+  public ChatQueue getChatQueue() {
     return chatQueue;
   }
 
@@ -327,21 +343,21 @@ public class ConnectedPlayer implements MinecraftConnectionAssociation, Player, 
   public void sendMessage(@NonNull Identity identity, @NonNull Component message) {
     Component translated = translateMessage(message);
 
-    connection.write(ChatBuilder.builder(this.getProtocolVersion())
+    connection.write(getChatBuilderFactory().builder()
         .component(translated).forIdentity(identity).toClient());
   }
 
   @Override
   public void sendMessage(@NonNull Identity identity, @NonNull Component message,
-                          @NonNull MessageType type) {
+      @NonNull MessageType type) {
     Preconditions.checkNotNull(message, "message");
     Preconditions.checkNotNull(type, "type");
 
     Component translated = translateMessage(message);
 
-    connection.write(ChatBuilder.builder(this.getProtocolVersion())
+    connection.write(getChatBuilderFactory().builder()
         .component(translated).forIdentity(identity)
-        .setType(type == MessageType.CHAT ? ChatBuilder.ChatType.CHAT : ChatBuilder.ChatType.SYSTEM)
+        .setType(type == MessageType.CHAT ? ChatType.CHAT : ChatType.SYSTEM)
         .toClient());
   }
 
@@ -505,7 +521,7 @@ public class ConnectedPlayer implements MinecraftConnectionAssociation, Player, 
   }
 
   private ConnectionRequestBuilder createConnectionRequest(RegisteredServer server,
-                                                           @Nullable VelocityServerConnection previousConnection) {
+      @Nullable VelocityServerConnection previousConnection) {
     return new ConnectionRequestBuilderImpl(server, previousConnection);
   }
 
@@ -525,7 +541,7 @@ public class ConnectedPlayer implements MinecraftConnectionAssociation, Player, 
   }
 
   @Override
-  public VelocityTabList getTabList() {
+  public InternalTabList getTabList() {
     return tabList;
   }
 
@@ -574,7 +590,7 @@ public class ConnectedPlayer implements MinecraftConnectionAssociation, Player, 
    * @param safe      whether or not we can safely reconnect to a new server
    */
   public void handleConnectionException(RegisteredServer server, Throwable throwable,
-                                        boolean safe) {
+      boolean safe) {
     if (!isActive()) {
       // If the connection is no longer active, it makes no sense to try and recover it.
       return;
@@ -613,7 +629,7 @@ public class ConnectedPlayer implements MinecraftConnectionAssociation, Player, 
    * @param safe       whether or not we can safely reconnect to a new server
    */
   public void handleConnectionException(RegisteredServer server, Disconnect disconnect,
-                                        boolean safe) {
+      boolean safe) {
     if (!isActive()) {
       // If the connection is no longer active, it makes no sense to try and recover it.
       return;
@@ -639,7 +655,7 @@ public class ConnectedPlayer implements MinecraftConnectionAssociation, Player, 
   }
 
   private void handleConnectionException(RegisteredServer rs,
-                                         @Nullable Component kickReason, Component friendlyReason, boolean safe) {
+      @Nullable Component kickReason, Component friendlyReason, boolean safe) {
     if (!isActive()) {
       // If the connection is no longer active, it makes no sense to try and recover it.
       return;
@@ -672,7 +688,7 @@ public class ConnectedPlayer implements MinecraftConnectionAssociation, Player, 
   }
 
   private void handleKickEvent(KickedFromServerEvent originalEvent, Component friendlyReason,
-                               boolean kickedFromCurrent) {
+      boolean kickedFromCurrent) {
     server.getEventManager().fire(originalEvent)
         .thenAcceptAsync(event -> {
           // There can't be any connection in flight now.
@@ -879,8 +895,10 @@ public class ConnectedPlayer implements MinecraftConnectionAssociation, Player, 
 
   @Override
   public String toString() {
-    boolean isPlayerAddressLoggingEnabled = server.getConfiguration().isPlayerAddressLoggingEnabled();
-    String playerIp = isPlayerAddressLoggingEnabled ? getRemoteAddress().toString() : "<ip address withheld>";
+    boolean isPlayerAddressLoggingEnabled = server.getConfiguration()
+        .isPlayerAddressLoggingEnabled();
+    String playerIp =
+        isPlayerAddressLoggingEnabled ? getRemoteAddress().toString() : "<ip address withheld>";
     return "[connected player] " + profile.getName() + " (" + playerIp + ")";
   }
 
@@ -913,13 +931,13 @@ public class ConnectedPlayer implements MinecraftConnectionAssociation, Player, 
         "input cannot be greater than " + LegacyChat.MAX_SERVERBOUND_MESSAGE_LENGTH
             + " characters in length");
     if (getProtocolVersion().compareTo(ProtocolVersion.MINECRAFT_1_19) >= 0) {
-      this.chatQueue.hijack(ChatBuilder.builder(getProtocolVersion()).asPlayer(this).message(input),
+      this.chatQueue.hijack(getChatBuilderFactory().builder().asPlayer(this).message(input),
           (instant, item) -> {
-            item.timestamp(instant);
+            item.setTimestamp(instant);
             return item.toServer();
           });
     } else {
-      ensureBackendConnection().write(ChatBuilder.builder(getProtocolVersion())
+      ensureBackendConnection().write(getChatBuilderFactory().builder()
           .asPlayer(this).message(input).toServer());
     }
   }
@@ -945,8 +963,8 @@ public class ConnectedPlayer implements MinecraftConnectionAssociation, Player, 
   }
 
   /**
-   * Queues a resource-pack for sending to the player and sends it
-   * immediately if the queue is empty.
+   * Queues a resource-pack for sending to the player and sends it immediately if the queue is
+   * empty.
    */
   public void queueResourcePack(ResourcePackInfo info) {
     outstandingResourcePacks.add(info);
@@ -1050,9 +1068,8 @@ public class ConnectedPlayer implements MinecraftConnectionAssociation, Player, 
   }
 
   /**
-   * Sends a {@link KeepAlive} packet to the player with a random ID.
-   * The response will be ignored by Velocity as it will not match the
-   * ID last sent by the server.
+   * Sends a {@link KeepAlive} packet to the player with a random ID. The response will be ignored
+   * by Velocity as it will not match the ID last sent by the server.
    */
   public void sendKeepAlive() {
     if (connection.getState() == StateRegistry.PLAY) {
@@ -1063,9 +1080,8 @@ public class ConnectedPlayer implements MinecraftConnectionAssociation, Player, 
   }
 
   /**
-   * Gets the current "phase" of the connection, mostly used for tracking
-   * modded negotiation for legacy forge servers and provides methods
-   * for performing phase specific actions.
+   * Gets the current "phase" of the connection, mostly used for tracking modded negotiation for
+   * legacy forge servers and provides methods for performing phase specific actions.
    *
    * @return The {@link ClientConnectionPhase}
    */
@@ -1097,6 +1113,7 @@ public class ConnectedPlayer implements MinecraftConnectionAssociation, Player, 
   }
 
   private class IdentityImpl implements Identity {
+
     @Override
     public @NonNull UUID uuid() {
       return ConnectedPlayer.this.getUniqueId();
@@ -1109,7 +1126,7 @@ public class ConnectedPlayer implements MinecraftConnectionAssociation, Player, 
     private final @Nullable VelocityRegisteredServer previousServer;
 
     ConnectionRequestBuilderImpl(RegisteredServer toConnect,
-                                 @Nullable VelocityServerConnection previousConnection) {
+        @Nullable VelocityServerConnection previousConnection) {
       this.toConnect = Preconditions.checkNotNull(toConnect, "info");
       this.previousServer = previousConnection == null ? null : previousConnection.getServer();
     }

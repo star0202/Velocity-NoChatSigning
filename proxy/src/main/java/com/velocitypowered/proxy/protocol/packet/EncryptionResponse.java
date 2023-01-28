@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 Velocity Contributors
+ * Copyright (C) 2018-2023 Velocity Contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -32,7 +32,8 @@ import java.util.Arrays;
 
 public class EncryptionResponse implements MinecraftPacket {
 
-  private final static QuietDecoderException NO_SALT = new QuietDecoderException("Encryption response didn't contain salt");
+  private final static QuietDecoderException NO_SALT = new QuietDecoderException(
+      "Encryption response didn't contain salt");
 
   private byte[] sharedSecret = EMPTY_BYTE_ARRAY;
   private byte[] verifyToken = EMPTY_BYTE_ARRAY;
@@ -67,12 +68,13 @@ public class EncryptionResponse implements MinecraftPacket {
       this.sharedSecret = ProtocolUtils.readByteArray(buf, 128);
 
       if (version.compareTo(ProtocolVersion.MINECRAFT_1_19) >= 0
-              && !buf.readBoolean()) {
+          && version.compareTo(ProtocolVersion.MINECRAFT_1_19_3) < 0
+          && !buf.readBoolean()) {
         salt = buf.readLong();
       }
 
       this.verifyToken = ProtocolUtils.readByteArray(buf,
-              version.compareTo(ProtocolVersion.MINECRAFT_1_19) >= 0 ? 256 : 128);
+          version.compareTo(ProtocolVersion.MINECRAFT_1_19) >= 0 ? 256 : 128);
     } else {
       this.sharedSecret = ProtocolUtils.readByteArray17(buf);
       this.verifyToken = ProtocolUtils.readByteArray17(buf);
@@ -83,11 +85,12 @@ public class EncryptionResponse implements MinecraftPacket {
   public void encode(ByteBuf buf, ProtocolUtils.Direction direction, ProtocolVersion version) {
     if (version.compareTo(ProtocolVersion.MINECRAFT_1_8) >= 0) {
       ProtocolUtils.writeByteArray(buf, sharedSecret);
-      if (version.compareTo(ProtocolVersion.MINECRAFT_1_19) >= 0) {
+      if (version.compareTo(ProtocolVersion.MINECRAFT_1_19) >= 0
+          && version.compareTo(ProtocolVersion.MINECRAFT_1_19_3) < 0) {
         if (salt != null) {
           buf.writeBoolean(false);
           buf.writeLong(salt);
-        } else  {
+        } else {
           buf.writeBoolean(true);
         }
       }
@@ -108,6 +111,9 @@ public class EncryptionResponse implements MinecraftPacket {
     // It turns out these come out to the same length, whether we're talking >=1.8 or not.
     // The length prefix always winds up being 2 bytes.
     int base = 256 + 2 + 2;
+    if (version.compareTo(ProtocolVersion.MINECRAFT_1_19_3) >= 0) {
+      return base + 128;
+    }
     if (version.compareTo(ProtocolVersion.MINECRAFT_1_19) >= 0) {
       // Verify token is twice as long on 1.19+
       // Additional 1 byte for left <> right and 8 bytes for salt

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 Velocity Contributors
+ * Copyright (C) 2018-2023 Velocity Contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,6 +18,7 @@
 package com.velocitypowered.proxy.protocol.packet.brigadier;
 
 import static com.velocitypowered.api.network.ProtocolVersion.MINECRAFT_1_19;
+import static com.velocitypowered.api.network.ProtocolVersion.MINECRAFT_1_19_3;
 import static com.velocitypowered.proxy.protocol.packet.brigadier.ArgumentIdentifier.id;
 import static com.velocitypowered.proxy.protocol.packet.brigadier.ArgumentIdentifier.mapSet;
 import static com.velocitypowered.proxy.protocol.packet.brigadier.DoubleArgumentPropertySerializer.DOUBLE;
@@ -43,19 +44,20 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class ArgumentPropertyRegistry {
+
   private ArgumentPropertyRegistry() {
     throw new AssertionError();
   }
 
   private static final Map<ArgumentIdentifier, ArgumentPropertySerializer<?>> byIdentifier =
-          new HashMap<>();
+      new HashMap<>();
   private static final Map<Class<? extends ArgumentType>,
       ArgumentPropertySerializer<?>> byClass = new HashMap<>();
   private static final Map<Class<? extends ArgumentType>, ArgumentIdentifier> classToId =
-          new HashMap<>();
+      new HashMap<>();
 
   private static <T extends ArgumentType<?>> void register(ArgumentIdentifier identifier,
-          Class<T> klazz, ArgumentPropertySerializer<T> serializer) {
+      Class<T> klazz, ArgumentPropertySerializer<T> serializer) {
     byIdentifier.put(identifier, serializer);
     byClass.put(klazz, serializer);
     classToId.put(klazz, identifier);
@@ -66,12 +68,13 @@ public class ArgumentPropertyRegistry {
   }
 
   private static <T> void empty(ArgumentIdentifier identifier,
-                                ArgumentPropertySerializer<T> serializer) {
+      ArgumentPropertySerializer<T> serializer) {
     byIdentifier.put(identifier, serializer);
   }
 
   /**
    * Deserializes the {@link ArgumentType}.
+   *
    * @param buf the buffer to deserialize
    * @return the deserialized {@link ArgumentType}
    */
@@ -93,11 +96,12 @@ public class ArgumentPropertyRegistry {
 
   /**
    * Serializes the {@code type} into the provided {@code buf}.
-   * @param buf the buffer to serialize into
+   *
+   * @param buf  the buffer to serialize into
    * @param type the type to serialize
    */
   public static void serialize(ByteBuf buf, ArgumentType<?> type,
-                               ProtocolVersion protocolVersion) {
+      ProtocolVersion protocolVersion) {
     if (type instanceof PassthroughProperty) {
       PassthroughProperty property = (PassthroughProperty) type;
       writeIdentifier(buf, property.getIdentifier(), protocolVersion);
@@ -122,12 +126,13 @@ public class ArgumentPropertyRegistry {
 
   /**
    * Writes the {@link ArgumentIdentifier} to a version-specific buffer.
-   * @param buf the buffer to write to
-   * @param identifier the identifier to write
+   *
+   * @param buf             the buffer to write to
+   * @param identifier      the identifier to write
    * @param protocolVersion the protocol version to use
    */
   public static void writeIdentifier(ByteBuf buf, ArgumentIdentifier identifier,
-                                 ProtocolVersion protocolVersion) {
+      ProtocolVersion protocolVersion) {
     if (protocolVersion.compareTo(MINECRAFT_1_19) >= 0) {
       Integer id = identifier.getIdByProtocolVersion(protocolVersion);
       Preconditions.checkNotNull(id, "Don't know how to serialize type " + identifier);
@@ -141,7 +146,8 @@ public class ArgumentPropertyRegistry {
 
   /**
    * Reads the {@link ArgumentIdentifier} from a version-specific buffer.
-   * @param buf the buffer to write to
+   *
+   * @param buf             the buffer to write to
    * @param protocolVersion the protocol version to use
    * @return the identifier read from the buffer
    */
@@ -176,13 +182,14 @@ public class ArgumentPropertyRegistry {
 
           @Override
           public void serialize(BoolArgumentType object, ByteBuf buf,
-                                ProtocolVersion protocolVersion) {
+              ProtocolVersion protocolVersion) {
 
           }
         });
     register(id("brigadier:float", mapSet(MINECRAFT_1_19, 1)), FloatArgumentType.class, FLOAT);
     register(id("brigadier:double", mapSet(MINECRAFT_1_19, 2)), DoubleArgumentType.class, DOUBLE);
-    register(id("brigadier:integer", mapSet(MINECRAFT_1_19, 3)), IntegerArgumentType.class, INTEGER);
+    register(id("brigadier:integer", mapSet(MINECRAFT_1_19, 3)), IntegerArgumentType.class,
+        INTEGER);
     register(id("brigadier:long", mapSet(MINECRAFT_1_19, 4)), LongArgumentType.class, LONG);
     register(id("brigadier:string", mapSet(MINECRAFT_1_19, 5)), StringArgumentType.class, STRING);
 
@@ -209,34 +216,45 @@ public class ArgumentPropertyRegistry {
     empty(id("minecraft:angle", mapSet(MINECRAFT_1_19, 26))); // added in 1.16.2
     empty(id("minecraft:rotation", mapSet(MINECRAFT_1_19, 27)));
     empty(id("minecraft:scoreboard_slot", mapSet(MINECRAFT_1_19, 28)));
-    empty(id("minecraft:score_holder", mapSet(MINECRAFT_1_19, 29)), ByteArgumentPropertySerializer.BYTE);
+    empty(id("minecraft:score_holder", mapSet(MINECRAFT_1_19, 29)),
+        ByteArgumentPropertySerializer.BYTE);
     empty(id("minecraft:swizzle", mapSet(MINECRAFT_1_19, 30)));
     empty(id("minecraft:team", mapSet(MINECRAFT_1_19, 31)));
     empty(id("minecraft:item_slot", mapSet(MINECRAFT_1_19, 32)));
     empty(id("minecraft:resource_location", mapSet(MINECRAFT_1_19, 33)));
-    empty(id("minecraft:mob_effect", mapSet(MINECRAFT_1_19, 34)));
-    empty(id("minecraft:function", mapSet(MINECRAFT_1_19, 35)));
-    empty(id("minecraft:entity_anchor", mapSet(MINECRAFT_1_19, 36)));
-    empty(id("minecraft:int_range", mapSet(MINECRAFT_1_19, 37)));
-    empty(id("minecraft:float_range", mapSet(MINECRAFT_1_19, 38)));
-    empty(id("minecraft:item_enchantment", mapSet(MINECRAFT_1_19, 39)));
-    empty(id("minecraft:entity_summon", mapSet(MINECRAFT_1_19, 40)));
-    empty(id("minecraft:dimension", mapSet(MINECRAFT_1_19, 41)));
-    empty(id("minecraft:time", mapSet(MINECRAFT_1_19, 42))); // added in 1.14
+    empty(id("minecraft:mob_effect", mapSet(MINECRAFT_1_19_3, -1), mapSet(MINECRAFT_1_19, 34)));
+    empty(id("minecraft:function", mapSet(MINECRAFT_1_19_3, 34), mapSet(MINECRAFT_1_19, 35)));
+    empty(id("minecraft:entity_anchor", mapSet(MINECRAFT_1_19_3, 35), mapSet(MINECRAFT_1_19, 36)));
+    empty(id("minecraft:int_range", mapSet(MINECRAFT_1_19_3, 36), mapSet(MINECRAFT_1_19, 37)));
+    empty(id("minecraft:float_range", mapSet(MINECRAFT_1_19_3, 37), mapSet(MINECRAFT_1_19, 38)));
+    empty(
+        id("minecraft:item_enchantment", mapSet(MINECRAFT_1_19_3, -1), mapSet(MINECRAFT_1_19, 39)));
+    empty(id("minecraft:entity_summon", mapSet(MINECRAFT_1_19_3, -1), mapSet(MINECRAFT_1_19, 40)));
+    empty(id("minecraft:dimension", mapSet(MINECRAFT_1_19_3, 38), mapSet(MINECRAFT_1_19, 41)));
+    empty(id("minecraft:gamemode", mapSet(MINECRAFT_1_19_3, 39))); // 1.19.3
+    empty(id("minecraft:time", mapSet(MINECRAFT_1_19_3, 40),
+        mapSet(MINECRAFT_1_19, 42))); // added in 1.14
 
-    register(id("minecraft:resource_or_tag", mapSet(MINECRAFT_1_19, 43)),
-            RegistryKeyArgument.class, RegistryKeyArgumentSerializer.REGISTRY);
-    register(id("minecraft:resource", mapSet(MINECRAFT_1_19, 44)),
-            RegistryKeyArgument.class, RegistryKeyArgumentSerializer.REGISTRY);
+    register(
+        id("minecraft:resource_or_tag", mapSet(MINECRAFT_1_19_3, 41), mapSet(MINECRAFT_1_19, 43)),
+        RegistryKeyArgument.class, RegistryKeyArgumentSerializer.REGISTRY);
+    register(id("minecraft:resource_or_tag_key", mapSet(MINECRAFT_1_19_3, 42)),
+        RegistryKeyArgumentList.ResourceOrTagKey.class,
+        RegistryKeyArgumentList.ResourceOrTagKey.Serializer.REGISTRY);
+    register(id("minecraft:resource", mapSet(MINECRAFT_1_19_3, 43), mapSet(MINECRAFT_1_19, 44)),
+        RegistryKeyArgument.class, RegistryKeyArgumentSerializer.REGISTRY);
+    register(id("minecraft:resource_key", mapSet(MINECRAFT_1_19_3, 44)),
+        RegistryKeyArgumentList.ResourceKey.class,
+        RegistryKeyArgumentList.ResourceKey.Serializer.REGISTRY);
 
     empty(id("minecraft:template_mirror", mapSet(MINECRAFT_1_19, 45))); // 1.19
     empty(id("minecraft:template_rotation", mapSet(MINECRAFT_1_19, 46))); // 1.19
 
     empty(id("minecraft:uuid", mapSet(MINECRAFT_1_19, 47))); // added in 1.16
 
-
     // Crossstitch support
-    register(id("crossstitch:mod_argument", mapSet(MINECRAFT_1_19, -256)), ModArgumentProperty.class, MOD);
+    register(id("crossstitch:mod_argument", mapSet(MINECRAFT_1_19, -256)),
+        ModArgumentProperty.class, MOD);
 
     empty(id("minecraft:nbt")); // No longer in 1.19+
   }
