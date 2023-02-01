@@ -26,6 +26,8 @@ import com.velocitypowered.proxy.protocol.MinecraftPacket;
 import com.velocitypowered.proxy.protocol.packet.chat.ChatQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+
+import net.kyori.adventure.text.Component;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -45,6 +47,14 @@ public class KeyedChatHandler implements
   @Override
   public Class<KeyedPlayerChat> packetClass() {
     return KeyedPlayerChat.class;
+  }
+
+  public static void invalidChange(Logger logger, ConnectedPlayer player) {
+    logger.fatal("A plugin tried to change a signed chat message. "
+                 + "This is no longer possible in 1.19.1 and newer. "
+                 + "Disconnecting player " + player.getUsername());
+    player.disconnect(Component.text("A proxy plugin caused an illegal protocol state. "
+                                     + "Contact your network administrator."));
   }
 
   @Override
@@ -68,9 +78,18 @@ public class KeyedChatHandler implements
           return null;
         }
 
-        return player.getChatBuilderFactory().builder()
-            .message(chatResult.getMessage().orElse(packet.getMessage()))
-            .setTimestamp(packet.getExpiry()).toServer();
+        if (chatResult.getMessage().map(str -> !str.equals(packet.getMessage()))
+                .orElse(false)) {
+          if (!packet.isUnsigned()) {
+            invalidChange(logger, player);
+            return null;
+          }
+          return this.player.getChatBuilderFactory().builder().message(packet.getMessage())
+                  .setTimestamp(packet.getExpiry())
+                  .toServer();
+        }
+
+        return packet;
       });
     }
     chatQueue.queuePacket(

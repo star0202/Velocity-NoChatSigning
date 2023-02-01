@@ -17,6 +17,8 @@
 
 package com.velocitypowered.proxy.protocol.packet.chat.session;
 
+import static com.velocitypowered.proxy.protocol.packet.chat.keyed.KeyedChatHandler.invalidChange;
+
 import com.velocitypowered.api.event.EventManager;
 import com.velocitypowered.api.event.player.PlayerChatEvent;
 import com.velocitypowered.proxy.VelocityServer;
@@ -25,7 +27,6 @@ import com.velocitypowered.proxy.protocol.packet.chat.ChatHandler;
 import com.velocitypowered.proxy.protocol.packet.chat.ChatQueue;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-
 public class SessionChatHandler implements ChatHandler<SessionPlayerChat> {
 
   private static final Logger logger = LogManager.getLogger(SessionChatHandler.class);
@@ -57,11 +58,16 @@ public class SessionChatHandler implements ChatHandler<SessionPlayerChat> {
               }
 
               if (chatResult.getMessage().map(str -> !str.equals(packet.getMessage()))
-                  .orElse(false)) {
-                return this.player.getChatBuilderFactory().builder().message(packet.message)
-                    .setTimestamp(packet.timestamp)
-                    .toServer();
+                      .orElse(false)) {
+                  if (packet.isSigned()) {
+                      invalidChange(logger, player);
+                      return null;
+                  }
+                  return this.player.getChatBuilderFactory().builder().message(packet.message)
+                          .setTimestamp(packet.timestamp)
+                          .toServer();
               }
+
               return packet;
             })
             .exceptionally((ex) -> {
