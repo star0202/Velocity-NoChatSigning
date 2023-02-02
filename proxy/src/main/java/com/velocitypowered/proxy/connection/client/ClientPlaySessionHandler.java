@@ -102,7 +102,6 @@ public class ClientPlaySessionHandler implements MinecraftSessionHandler {
   private @Nullable TabCompleteRequest outstandingTabComplete;
   private final ChatHandler<? extends MinecraftPacket> chatHandler;
   private final CommandHandler<? extends MinecraftPacket> commandHandler;
-  private final ChatTimeKeeper timeKeeper = new ChatTimeKeeper();
 
   /**
    * Constructs a client play session handler.
@@ -128,13 +127,6 @@ public class ClientPlaySessionHandler implements MinecraftSessionHandler {
 
   @SuppressWarnings("BooleanMethodIsAlwaysInverted")
   private boolean updateTimeKeeper(@Nullable Instant instant) {
-    if (instant == null) {
-      return true;
-    }
-    if (!this.timeKeeper.update(instant)) {
-      player.disconnect(Component.translatable("multiplayer.disconnect.out_of_order_chat"));
-      return false;
-    }
     return true;
   }
 
